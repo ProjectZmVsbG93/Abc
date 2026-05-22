@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小売・流通業向け 高度データ分析ダッシュボード</title>
+    <title>小売・流通・金融向け 高度データ分析ダッシュボード</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
@@ -21,10 +22,9 @@
             font-family: 'Inter', 'Noto Sans JP', sans-serif; 
             background-color: #f8fafc; 
             color: #1e293b;
-            overflow-x: hidden; /* Prevent horizontal scroll */
+            overflow-x: hidden; 
         }
         
-        /* Container Constraint */
         .app-container { 
             max-width: 1200px; 
             margin: 0 auto; 
@@ -32,7 +32,6 @@
             padding: 1rem; 
         }
 
-        /* Chart Card Styling */
         .chart-card { 
             background: white; 
             border-radius: 1rem; 
@@ -44,7 +43,7 @@
             width: 100%; 
             overflow: hidden; 
             transition: transform 0.2s;
-            break-inside: avoid; /* Print optimization */
+            break-inside: avoid; 
         }
         .chart-card:hover {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -56,7 +55,6 @@
             transition: height 0.3s ease; 
         }
         
-        /* Layout Modes */
         .cols-1 .chart-container { height: 420px; }
         .cols-2 .chart-container { height: 280px; }
 
@@ -81,7 +79,6 @@
         .prose-ai h3::before { content: "■"; font-size: 0.8em; color: #60a5fa; }
         .prose-ai ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
         .prose-ai li { margin-bottom: 0.25rem; }
-        /* Strong tag styling - ensure bold is visible */
         .prose-ai strong, .prose-ai b { 
             color: #1e3a8a; 
             font-weight: 800; 
@@ -95,17 +92,13 @@
         .prose-ai td { padding: 0.75rem; border: 1px solid #cbd5e1; background: white; }
         .prose-ai tr:nth-child(even) td { background: #f9fafb; }
 
-        /* Loading & Header */
         .loading-overlay { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(4px); }
-        /* Header Hidden Initially */
         #appHeader.hidden { display: none; }
         header { position: sticky; top: 0; z-index: 50; transition: all 0.3s; }
         
-        /* Custom Scrollbar for Filters */
         .filter-scroll::-webkit-scrollbar { height: 4px; }
         .filter-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
-        /* Splash Screen */
         .splash-screen {
             position: fixed;
             inset: 0;
@@ -123,7 +116,7 @@
 
     <div id="loadingOverlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center hidden loading-overlay">
         <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4"></div>
-        <p class="text-lg font-bold text-slate-700 animate-pulse" id="loadingText">システムを起動中...</p>
+        <p class="text-lg font-bold text-slate-700 animate-pulse" id="loadingText">データを解析中...</p>
     </div>
 
     <div id="initialSplash" class="splash-screen">
@@ -139,8 +132,8 @@
             <label class="group relative flex items-center justify-center gap-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-5 px-8 rounded-2xl cursor-pointer transition-all shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] overflow-hidden">
                 <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                 <i data-lucide="upload-cloud" class="w-7 h-7 relative z-10"></i>
-                <span class="relative z-10">データ分析を開始する (CSV)</span>
-                <input type="file" id="csvFileInputSplash" class="hidden" accept=".csv">
+                <span class="relative z-10">データ読込 (CSV / Excel)</span>
+                <input type="file" id="fileInputSplash" class="hidden" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
             </label>
         </div>
     </div>
@@ -152,8 +145,8 @@
                 <div class="flex items-center gap-2">
                     <label class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-bold cursor-pointer transition-all shadow-sm active:scale-95 whitespace-nowrap">
                         <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                        <span>CSV再読込</span>
-                        <input type="file" id="csvFileInputHeader" class="hidden" accept=".csv">
+                        <span>ファイル再読込</span>
+                        <input type="file" id="fileInputHeader" class="hidden" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
                     </label>
                     <button id="btnExportPdf" class="flex items-center gap-2 px-3 py-1.5 bg-slate-700 text-white rounded-md hover:bg-slate-600 text-xs font-bold transition-all shadow-sm active:scale-95 hidden whitespace-nowrap">
                         <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
@@ -264,7 +257,6 @@
 
     <script>
         // --- 1. Configuration & State ---
-        // APIキーは実行環境(Canvas)から自動的に提供されます。
         const apiKey = ""; 
         
         let rawData = [];
@@ -273,7 +265,6 @@
         let currentLayout = 1;
         let globalChartDefinitions = [];
 
-        // Chart.js Default Settings
         Chart.defaults.font.family = "'Inter', 'Noto Sans JP', sans-serif";
         Chart.defaults.color = '#64748b';
         Chart.defaults.scale.grid.color = '#f1f5f9';
@@ -347,13 +338,13 @@
 
         // --- 3. Main Logic ---
         window.onload = () => {
-            if (typeof Papa === 'undefined') {
-                alert("PapaParseライブラリがロードされていません。");
+            if (typeof Papa === 'undefined' || typeof XLSX === 'undefined') {
+                alert("必要なライブラリ(PapaParse/SheetJS)がロードされていません。");
                 return;
             }
             lucide.createIcons();
-            document.getElementById('csvFileInputSplash').addEventListener('change', handleFile);
-            document.getElementById('csvFileInputHeader').addEventListener('change', handleFile);
+            document.getElementById('fileInputSplash').addEventListener('change', handleFile);
+            document.getElementById('fileInputHeader').addEventListener('change', handleFile);
             
             document.getElementById('btnLayout1').addEventListener('click', () => toggleLayout(1));
             document.getElementById('btnLayout2').addEventListener('click', () => toggleLayout(2));
@@ -393,47 +384,73 @@
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
 
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: 'greedy', 
-                encoding: 'Shift_JIS',
-                complete: (results) => {
-                    const keys = results.meta.fields || Object.keys(results.data[0] || {});
-                    const hasKeywords = keys.some(k => 
-                        k.includes('建玉') || k.includes('取引高') || k.includes('限月')
-                    );
+            const isExcel = file.name.match(/\.(xlsx|xls)$/i);
 
-                    if (!hasKeywords && keys.length > 0) {
-                        console.log("Shift_JIS appears invalid. Retrying UTF-8.");
-                        Papa.parse(file, {
-                            header: true,
-                            skipEmptyLines: 'greedy',
-                            encoding: 'UTF-8',
-                            complete: (resUTF) => processData(resUTF.data)
+            if (isExcel) {
+                // EXCELファイルの処理
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        let combinedData = [];
+                        
+                        // 全てのシートのデータを抽出して結合
+                        workbook.SheetNames.forEach(sheetName => {
+                            const sheet = workbook.Sheets[sheetName];
+                            const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                            combinedData = combinedData.concat(json);
                         });
-                    } else {
-                        processData(results.data);
+                        processData(combinedData);
+                    } catch(err) {
+                        console.error("Excel Parse Error:", err);
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        alert("Excelファイルの読み込みに失敗しました。");
                     }
-                },
-                error: (err) => {
-                    console.error("CSV Parse Error", err);
+                };
+                reader.onerror = () => {
                     document.getElementById('loadingOverlay').classList.add('hidden');
-                    alert("CSVファイルの読み込みに失敗しました。形式を確認してください。");
-                }
-            });
+                    alert("ファイルの読み込み中にエラーが発生しました。");
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                // CSVファイルの処理
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: 'greedy', 
+                    encoding: 'Shift_JIS',
+                    complete: (results) => {
+                        const keys = results.meta.fields || Object.keys(results.data[0] || {});
+                        const hasKeywords = keys.some(k => k.includes('建玉') || k.includes('取引高') || k.includes('限月'));
+
+                        if (!hasKeywords && keys.length > 0) {
+                            Papa.parse(file, {
+                                header: true,
+                                skipEmptyLines: 'greedy',
+                                encoding: 'UTF-8',
+                                complete: (resUTF) => processData(resUTF.data)
+                            });
+                        } else {
+                            processData(results.data);
+                        }
+                    },
+                    error: (err) => {
+                        console.error("CSV Parse Error", err);
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        alert("CSVファイルの読み込みに失敗しました。");
+                    }
+                });
+            }
         }
 
         function processData(data) {
             rawData = [];
             let currentCategory = "未分類";
 
-            // 日本取引所(JPX)のデリバティブ建玉残高データの複雑な構造を解析・フラット化する
-            data.forEach((row, index) => {
-                // ヘッダーや空白行のスキップ判定
+            data.forEach((row) => {
                 const keys = Object.keys(row);
                 if (keys.length === 0) return;
                 
-                // 行の最初の値を確認
                 const firstVal = String(row[keys[0]] || '').trim();
                 
                 // カテゴリの推定 (「＜日経225...＞」などの記述)
@@ -442,12 +459,10 @@
                     return;
                 }
 
-                // 汎用的なマッピング
                 let category = currentCategory;
                 let contractMonth = '';
-                let type = '不明'; // プット or コール or その他
+                let type = '不明'; 
                 
-                // データの抽出 (OR演算子で柔軟に対応)
                 const getVal = (possibleKeys) => {
                     for(const k of possibleKeys) {
                         const cleanK = k.trim();
@@ -464,7 +479,6 @@
                 if (!rawContractMonth || rawContractMonth.includes('限月取引') || rawContractMonth.includes('JPX')) return;
                 contractMonth = rawContractMonth.trim();
 
-                // 品目・プットコールの判定
                 if (contractMonth.match(/MINI/i) || category.match(/ミニ/)) {
                     category = '日経225ミニオプション';
                 } else if (contractMonth.match(/NIKKEI 225/i) || category.match(/日経225/)) {
@@ -481,7 +495,6 @@
                     type = '先物';
                 }
 
-                // 数値データの抽出 (特殊文字を考慮)
                 const volumeStr = getVal(['取引高', '数量']);
                 const oiStr = getVal(['当日建玉残高', '建玉残高', '当日\n建玉残高', '当日\r\n建玉残高']);
                 const diffStr = getVal(['前日比', '増減']);
@@ -489,12 +502,10 @@
 
                 const volume = cleanNum(volumeStr);
                 const openInterest = cleanNum(oiStr);
-                // 前日比はマイナスを許容する
                 const sDiff = String(diffStr).replace(/[^-0-9.]/g, '');
                 const diff = parseFloat(sDiff) || 0;
                 const prevOpenInterest = cleanNum(prevOiStr);
 
-                // 全て0のデータや無効な行はスキップ
                 if (volume === 0 && openInterest === 0 && diff === 0) return;
 
                 rawData.push({
@@ -572,7 +583,6 @@
             };
 
             globalChartDefinitions = [
-                // 1. 商品別 当日建玉残高合計シェア
                 {
                     id: 'c1', title: '商品別 当日建玉残高合計シェア', type: 'doughnut',
                     getData: () => {
@@ -580,7 +590,6 @@
                         return { labels: d.labels, datasets: [{ data: d.data, backgroundColor: COLORS }] };
                     }
                 },
-                // 2. 商品別 取引高合計比較
                 {
                     id: 'c2', title: '商品別 取引高合計比較', type: 'bar',
                     getData: () => {
@@ -588,7 +597,6 @@
                         return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[1] }] };
                     }
                 },
-                // 3. 先物・その他 限月別建玉残高 (国債や金利含む)
                 {
                     id: 'c3', title: '先物・その他 限月別建玉残高 TOP10', type: 'bar',
                     getData: () => {
@@ -597,7 +605,6 @@
                         return { labels: d.labels, datasets: [{ label: '建玉残高', data: d.data, backgroundColor: COLORS[2] }] };
                     }
                 },
-                // 4. 先物・その他 取引高ランキング
                 {
                     id: 'c4', title: '先物・その他 取引高 TOP10', type: 'bar',
                     getData: () => {
@@ -606,7 +613,6 @@
                         return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[3] }] };
                     }
                 },
-                // 5. 日経225オプション プット 建玉残高 TOP10
                 {
                     id: 'c5', title: '日経225オプション プット 建玉残高 TOP10', type: 'bar',
                     getData: () => {
@@ -616,7 +622,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 6. 日経225オプション コール 建玉残高 TOP10
                 {
                     id: 'c6', title: '日経225オプション コール 建玉残高 TOP10', type: 'bar',
                     getData: () => {
@@ -626,7 +631,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 7. 日経225ミニオプション プット 建玉残高 TOP10
                 {
                     id: 'c7', title: '日経225ミニオプション プット 建玉残高 TOP10', type: 'bar',
                     getData: () => {
@@ -636,7 +640,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 8. 日経225ミニオプション コール 建玉残高 TOP10
                 {
                     id: 'c8', title: '日経225ミニオプション コール 建玉残高 TOP10', type: 'bar',
                     getData: () => {
@@ -646,7 +649,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 9. 日経225オプション プット vs コール 建玉比率
                 {
                     id: 'c9', title: '日経225オプション プット/コール 建玉比率', type: 'pie',
                     getData: () => {
@@ -655,7 +657,6 @@
                         return { labels: d.labels, datasets: [{ data: d.data, backgroundColor: [COLORS[8], COLORS[9]] }] };
                     }
                 },
-                // 10. 日経225ミニ プット vs コール 取引高比率
                 {
                     id: 'c10', title: '日経225ミニ プット/コール 取引高比率', type: 'pie',
                     getData: () => {
@@ -664,7 +665,6 @@
                         return { labels: d.labels, datasets: [{ data: d.data, backgroundColor: [COLORS[10], COLORS[11]] }] };
                     }
                 },
-                // 11. 区分別（プット/コール/先物） 前日比増減幅
                 {
                     id: 'c11', title: '区分別（プット/コール等） 前日比合計', type: 'bar',
                     getData: () => {
@@ -672,7 +672,6 @@
                         return { labels: d.labels, datasets: [{ label: '前日比増減', data: d.data, backgroundColor: COLORS[12] }] };
                     }
                 },
-                // 12. 日経225オプション プット 取引高 TOP10
                 {
                     id: 'c12', title: '日経225オプション プット 取引高 TOP10', type: 'bar',
                     getData: () => {
@@ -682,7 +681,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 13. 日経225オプション コール 取引高 TOP10
                 {
                     id: 'c13', title: '日経225オプション コール 取引高 TOP10', type: 'bar',
                     getData: () => {
@@ -692,7 +690,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 14. 日経225ミニ プット 取引高 TOP10
                 {
                     id: 'c14', title: '日経225ミニ プット 取引高 TOP10', type: 'bar',
                     getData: () => {
@@ -702,7 +699,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 15. 日経225ミニ コール 取引高 TOP10
                 {
                     id: 'c15', title: '日経225ミニ コール 取引高 TOP10', type: 'bar',
                     getData: () => {
@@ -712,7 +708,6 @@
                     },
                     options: { indexAxis: 'y' }
                 },
-                // 16. 全市場 建玉増大 TOP10 (前日比プラス)
                 {
                     id: 'c16', title: '建玉増大 銘柄 TOP10 (前日比プラス)', type: 'bar',
                     getData: () => {
@@ -720,7 +715,6 @@
                         return { labels: data.map(d => d.contractMonth), datasets: [{ label: '前日比増', data: data.map(d => d.diff), backgroundColor: '#10b981' }] };
                     }
                 },
-                // 17. 全市場 建玉減少 BOTTOM10 (前日比マイナス)
                 {
                     id: 'c17', title: '建玉減少 銘柄 BOTTOM10 (前日比マイナス)', type: 'bar',
                     getData: () => {
@@ -728,7 +722,6 @@
                         return { labels: data.map(d => d.contractMonth), datasets: [{ label: '前日比減', data: data.map(d => d.diff), backgroundColor: '#ef4444' }] };
                     }
                 },
-                // 18. 建玉残高 vs 取引高 相関分析
                 {
                     id: 'c18', title: '建玉残高 vs 取引高 相関分析', type: 'scatter',
                     getData: () => {
@@ -742,7 +735,6 @@
                     },
                     options: { scales: { x: { title: { display: true, text: '建玉残高' } }, y: { title: { display: true, text: '取引高' } } } }
                 },
-                // 19. カテゴリ別 取引高比較
                 {
                     id: 'c19', title: 'カテゴリ別 取引高比較', type: 'bar',
                     getData: () => {
@@ -750,7 +742,6 @@
                         return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[18] }] };
                     }
                 },
-                // 20. 取引高 TOP10銘柄 前日建玉残高と当日取引高の複合分析
                 {
                     id: 'c20', title: '取引活況銘柄: 前日建玉と当日取引高', type: 'bar',
                     getData: () => {
@@ -860,9 +851,9 @@
 
             ## レポート要件 (Markdown形式)
             1. **データの傾向分析** (全体の約7割)
-               - 建玉残高の分布、前日比の増減から読み取れる市場のセンチメント（強気/弱気、ヘッジ需要など）
+               - 建玉残高の分布、前日比の増減から読み取れる市場のセンチメント
                - 取引高と建玉残高の乖離や特徴的な動き
-               - プット/コールのバランスや主要な権利行使価格帯（ストライク）の分析
+               - プット/コールのバランスや主要な権利行使価格帯の分析
 
             2. **戦略インサイト・提言** (全体の約3割)
                - 上記分析に基づき、明日の市場に向けた具体的な注目ポイント・リスクシナリオを3点
@@ -870,7 +861,6 @@
 
             **重要: セクションの見出しには、「70%」や「30%」といった割合の数値を絶対に含めないでください。**
             **重要: 太字にする際は、Markdownの ** (アスタリスク2つ) を使用し、HTMLタグやエスケープ文字は使用しないでください。強調したい言葉の前後には必ず半角スペースを入れてください（例: 「 **強調** 」）。**
-            ※文体は「です・ます」調で、プロフェッショナルかつ客観的なトーンで書いてください。
             `;
 
             try {
@@ -882,11 +872,10 @@
                             
                             const data = await res.json();
                             if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-                                throw new Error("Invalid API Response: No text content found");
+                                throw new Error("Invalid API Response");
                             }
                             return data; 
                         } catch (err) {
-                            console.warn(`Attempt ${i + 1} failed: ${err.message}`);
                             if (i === retries - 1) throw err;
                             await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i))); 
                         }
