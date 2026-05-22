@@ -1,40 +1,1136 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome</title>
+    <title>小売・流通業向け 高度データ分析ダッシュボード</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        
+        body { 
+            font-family: 'Inter', 'Noto Sans JP', sans-serif; 
+            background-color: #f8fafc; 
+            color: #1e293b;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        
+        /* Container Constraint */
+        .app-container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            width: 100%; 
+            padding: 1rem; 
+        }
+
+        /* Chart Card Styling */
+        .chart-card { 
+            background: white; 
+            border-radius: 1rem; 
+            border: 1px solid #e2e8f0; 
+            padding: 1.25rem; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+            display: flex; 
+            flex-direction: column; 
+            width: 100%; 
+            overflow: hidden; 
+            transition: transform 0.2s;
+            break-inside: avoid; /* Print optimization */
+        }
+        .chart-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            transition: height 0.3s ease; 
+        }
+        
+        /* Layout Modes */
+        .cols-1 .chart-container { height: 420px; }
+        .cols-2 .chart-container { height: 280px; }
+
+        .dashboard-grid { 
+            display: grid; 
+            gap: 1.5rem; 
+            width: 100%; 
+        }
+        .cols-1 { grid-template-columns: 1fr; }
+        .cols-2 { grid-template-columns: repeat(2, 1fr); }
+        
+        @media (max-width: 768px) { 
+            .cols-2 { grid-template-columns: 1fr; } 
+            .cols-2 .chart-container { height: 350px; }
+        }
+
+        /* Professional AI Insight Styling */
+        .prose-ai { font-size: 0.95rem; line-height: 1.7; color: #334155; }
+        .prose-ai h1 { font-size: 1.5rem; font-weight: 800; margin: 1.5rem 0 1rem; color: #1e3a8a; border-left: 4px solid #2563eb; padding-left: 0.75rem;}
+        .prose-ai h2 { font-size: 1.25rem; font-weight: 700; margin: 1.25rem 0 0.75rem; color: #1e40af; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.25rem; }
+        .prose-ai h3 { font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem; color: #2563eb; display: flex; align-items: center; gap: 0.5rem;}
+        .prose-ai h3::before { content: "■"; font-size: 0.8em; color: #60a5fa; }
+        .prose-ai ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .prose-ai li { margin-bottom: 0.25rem; }
+        /* Strong tag styling - ensure bold is visible */
+        .prose-ai strong, .prose-ai b { 
+            color: #1e3a8a; 
+            font-weight: 800; 
+            background: linear-gradient(transparent 60%, #bfdbfe 60%); 
+            padding-left: 2px;
+            padding-right: 2px;
+            border-radius: 2px;
+        }
+        .prose-ai table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; border: 1px solid #e2e8f0; }
+        .prose-ai th { background: #f8fafc; padding: 0.75rem; border: 1px solid #cbd5e1; text-align: left; font-weight: 600; color: #475569;}
+        .prose-ai td { padding: 0.75rem; border: 1px solid #cbd5e1; background: white; }
+        .prose-ai tr:nth-child(even) td { background: #f9fafb; }
+
+        /* Loading & Header */
+        .loading-overlay { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(4px); }
+        /* Header Hidden Initially */
+        #appHeader.hidden { display: none; }
+        header { position: sticky; top: 0; z-index: 50; transition: all 0.3s; }
+        
+        /* Custom Scrollbar for Filters */
+        .filter-scroll::-webkit-scrollbar { height: 4px; }
+        .filter-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            z-index: 40;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            justify-content: center;
         }
-        .container {
-            text-align: center;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-        h1 {
-            color: #333;
-            margin: 0;
-        }
-        p {
-            color: #666;
-            margin-top: 10px;
-        }
+        .splash-screen.hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to Abc</h1>
-        <p>This is your new HTML page</p>
+
+    <div id="loadingOverlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center hidden loading-overlay">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4"></div>
+        <p class="text-lg font-bold text-slate-700 animate-pulse" id="loadingText">システムを起動中...</p>
     </div>
+
+    <div id="initialSplash" class="splash-screen">
+        <div class="text-center p-10 max-w-lg w-full">
+            <div class="mb-8 flex justify-center">
+                <div class="bg-white p-6 rounded-3xl shadow-xl border border-slate-100">
+                    <i data-lucide="bar-chart-3" class="w-20 h-20 text-blue-600"></i>
+                </div>
+            </div>
+            <h1 class="text-3xl font-extrabold text-slate-800 mb-3 tracking-tight">Majin Analytics</h1>
+            <p class="text-slate-500 mb-10 font-medium">高度なデータ分析とAI戦略レポートを、<br>あなたのローカル環境で。</p>
+            
+            <label class="group relative flex items-center justify-center gap-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold py-5 px-8 rounded-2xl cursor-pointer transition-all shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] overflow-hidden">
+                <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <i data-lucide="upload-cloud" class="w-7 h-7 relative z-10"></i>
+                <span class="relative z-10">データ分析を開始する (CSV)</span>
+                <input type="file" id="csvFileInputSplash" class="hidden" accept=".csv">
+            </label>
+        </div>
+    </div>
+
+    <header id="appHeader" class="bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm sticky top-0 z-50 hidden">
+        <div class="max-w-[1200px] mx-auto px-4 py-2">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                
+                <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-bold cursor-pointer transition-all shadow-sm active:scale-95 whitespace-nowrap">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                        <span>CSV再読込</span>
+                        <input type="file" id="csvFileInputHeader" class="hidden" accept=".csv">
+                    </label>
+                    <button id="btnExportPdf" class="flex items-center gap-2 px-3 py-1.5 bg-slate-700 text-white rounded-md hover:bg-slate-600 text-xs font-bold transition-all shadow-sm active:scale-95 hidden whitespace-nowrap">
+                        <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                        <span>PDF保存</span>
+                    </button>
+                    <button id="btnExportJson" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-500 text-xs font-bold transition-all shadow-sm active:scale-95 hidden whitespace-nowrap">
+                        <i data-lucide="file-json" class="w-3.5 h-3.5"></i>
+                        <span>JSON保存</span>
+                    </button>
+                </div>
+
+                <div id="controlPanel" class="flex flex-wrap items-center gap-2 flex-1 justify-end">
+                    
+                    <div class="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md border border-slate-200 opacity-50 pointer-events-none" id="filterContainer1">
+                        <i data-lucide="layers" class="w-3 h-3 text-slate-400"></i>
+                        <select id="filterCategory" class="bg-transparent text-xs font-semibold focus:outline-none max-w-[120px] text-slate-600">
+                            <option value="all">全商品・全区分</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 ml-1">
+                        <button id="btnLayout1" class="p-1 rounded bg-white shadow-sm text-blue-600 transition-all" title="1列">
+                            <i data-lucide="layout-list" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button id="btnLayout2" class="p-1 rounded text-slate-400 hover:text-slate-600 transition-all" title="2列">
+                            <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-container py-6">
+        
+        <div id="dashboardContent" class="hidden space-y-6">
+            
+            <section id="kpiSection" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i data-lucide="layers" class="w-16 h-16 text-blue-600"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">総建玉残高</p>
+                    <h3 id="kpi-open-interest" class="text-xl font-extrabold text-slate-800 tracking-tight">-</h3>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i data-lucide="activity" class="w-16 h-16 text-emerald-600"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">総取引高</p>
+                    <h3 id="kpi-volume" class="text-xl font-extrabold text-emerald-600 tracking-tight">-</h3>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i data-lucide="trending-up" class="w-16 h-16 text-indigo-600"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">建玉 前日比合計</p>
+                    <h3 id="kpi-diff" class="text-xl font-extrabold text-slate-800 tracking-tight">-</h3>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i data-lucide="bar-chart-2" class="w-16 h-16 text-orange-600"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">有効銘柄数</p>
+                    <h3 id="kpi-count" class="text-xl font-extrabold text-slate-800 tracking-tight">-</h3>
+                </div>
+            </section>
+
+            <section id="chartsGrid" class="dashboard-grid cols-1">
+                </section>
+
+            <section id="aiSection" class="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden relative">
+                <div class="bg-blue-50/50 px-5 py-3 border-b border-blue-100 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="bg-blue-600 text-white p-1 rounded shadow-sm">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                        </div>
+                        <h2 class="text-sm font-bold text-blue-900">AI 戦略分析レポート</h2>
+                    </div>
+                    <div id="aiStatusBadge" class="flex items-center gap-2 px-2 py-0.5 bg-white rounded-full border border-blue-100 shadow-sm text-[10px] font-bold text-blue-600">
+                        <span class="relative flex h-1.5 w-1.5">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span>
+                        </span>
+                        Thinking...
+                    </div>
+                </div>
+                <div class="p-6 min-h-[150px]">
+                    <div id="aiContent" class="prose-ai">
+                        <div class="flex flex-col items-center justify-center h-24 text-slate-400 gap-2">
+                            <i data-lucide="brain-circuit" class="w-8 h-8 opacity-20"></i>
+                            <p class="text-xs font-medium">データを分析中...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-slate-800 text-slate-300 rounded-xl p-6 text-center mt-8">
+                <p class="text-xs opacity-80">
+                    Generated by Majin Analytics
+                </p>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. Configuration & State ---
+        // APIキーは実行環境(Canvas)から自動的に提供されます。
+        const apiKey = ""; 
+        
+        let rawData = [];
+        let filteredData = [];
+        let charts = {};
+        let currentLayout = 1;
+        let globalChartDefinitions = [];
+
+        // Chart.js Default Settings
+        Chart.defaults.font.family = "'Inter', 'Noto Sans JP', sans-serif";
+        Chart.defaults.color = '#64748b';
+        Chart.defaults.scale.grid.color = '#f1f5f9';
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)';
+        Chart.defaults.plugins.tooltip.padding = 10;
+        Chart.defaults.plugins.tooltip.cornerRadius = 6;
+        Chart.defaults.plugins.tooltip.titleFont = { size: 11 };
+        Chart.defaults.plugins.tooltip.bodyFont = { size: 11 };
+        
+        const COLORS = [
+            '#2563eb', '#0ea5e9', '#06b6d4', '#14b8a6', '#10b981', 
+            '#84cc16', '#eab308', '#f97316', '#ef4444', '#f43f5e', 
+            '#d946ef', '#8b5cf6', '#6366f1', '#4f46e5', '#3b82f6',
+            '#64748b', '#475569', '#334155', '#1e293b', '#0f172a'
+        ];
+
+        // --- 2. Utility Functions ---
+        const cleanNum = (val) => {
+            if (val === null || val === undefined || val === '-') return 0;
+            const s = String(val).replace(/[^-0-9.]/g, ''); 
+            const n = parseFloat(s);
+            return isNaN(n) ? 0 : n;
+        };
+
+        const formatShortNumber = (val) => {
+            if (val === null || val === undefined) return '';
+            if (typeof val !== 'number') return val;
+            
+            const abs = Math.abs(val);
+            if (abs >= 100000000) return (val / 100000000).toFixed(1) + '億';
+            if (abs >= 10000) return (val / 10000).toFixed(0) + '万';
+            return val.toLocaleString();
+        };
+
+        const aggregateData = (data, key, measure, op = 'sum', limit = 10, includeOthers = true) => {
+            const map = {};
+            data.forEach(d => {
+                const k = d[key] || '不明・未入力';
+                const v = d[measure] || 0;
+                if (!map[k]) map[k] = [];
+                map[k].push(v);
+            });
+
+            let entries = Object.entries(map).map(([k, vals]) => {
+                let val = 0;
+                if (op === 'sum') val = vals.reduce((a, b) => a + b, 0);
+                if (op === 'count') val = vals.length;
+                if (op === 'avg') val = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+                return { key: k, val };
+            });
+
+            entries.sort((a, b) => b.val - a.val);
+
+            if (entries.length > limit) {
+                const top = entries.slice(0, limit);
+                if (includeOthers) {
+                    const otherVal = entries.slice(limit).reduce((acc, cur) => acc + cur.val, 0);
+                    if (op === 'avg') {
+                        top.push({ key: 'その他', val: otherVal / (entries.length - limit) }); 
+                    } else {
+                        top.push({ key: 'その他', val: otherVal });
+                    }
+                }
+                entries = top;
+            }
+            return {
+                labels: entries.map(e => e.key),
+                data: entries.map(e => e.val)
+            };
+        };
+
+        // --- 3. Main Logic ---
+        window.onload = () => {
+            if (typeof Papa === 'undefined') {
+                alert("PapaParseライブラリがロードされていません。");
+                return;
+            }
+            lucide.createIcons();
+            document.getElementById('csvFileInputSplash').addEventListener('change', handleFile);
+            document.getElementById('csvFileInputHeader').addEventListener('change', handleFile);
+            
+            document.getElementById('btnLayout1').addEventListener('click', () => toggleLayout(1));
+            document.getElementById('btnLayout2').addEventListener('click', () => toggleLayout(2));
+            document.getElementById('btnExportPdf').addEventListener('click', exportPDF);
+            document.getElementById('btnExportJson').addEventListener('click', exportJSON);
+            
+            document.getElementById('filterCategory').addEventListener('change', applyFilters);
+        };
+
+        function toggleLayout(mode) {
+            currentLayout = mode;
+            const grid = document.getElementById('chartsGrid');
+            const btn1 = document.getElementById('btnLayout1');
+            const btn2 = document.getElementById('btnLayout2');
+            
+            if (mode === 1) {
+                grid.classList.remove('cols-2');
+                grid.classList.add('cols-1');
+                btn1.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                btn1.classList.remove('text-slate-400');
+                btn2.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                btn2.classList.add('text-slate-400');
+            } else {
+                grid.classList.remove('cols-1');
+                grid.classList.add('cols-2');
+                btn2.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                btn2.classList.remove('text-slate-400');
+                btn1.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                btn1.classList.add('text-slate-400');
+            }
+            Object.values(charts).forEach(c => c.resize());
+        }
+
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: 'greedy', 
+                encoding: 'Shift_JIS',
+                complete: (results) => {
+                    const keys = results.meta.fields || Object.keys(results.data[0] || {});
+                    const hasKeywords = keys.some(k => 
+                        k.includes('建玉') || k.includes('取引高') || k.includes('限月')
+                    );
+
+                    if (!hasKeywords && keys.length > 0) {
+                        console.log("Shift_JIS appears invalid. Retrying UTF-8.");
+                        Papa.parse(file, {
+                            header: true,
+                            skipEmptyLines: 'greedy',
+                            encoding: 'UTF-8',
+                            complete: (resUTF) => processData(resUTF.data)
+                        });
+                    } else {
+                        processData(results.data);
+                    }
+                },
+                error: (err) => {
+                    console.error("CSV Parse Error", err);
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    alert("CSVファイルの読み込みに失敗しました。形式を確認してください。");
+                }
+            });
+        }
+
+        function processData(data) {
+            rawData = [];
+            let currentCategory = "未分類";
+
+            // 日本取引所(JPX)のデリバティブ建玉残高データの複雑な構造を解析・フラット化する
+            data.forEach((row, index) => {
+                // ヘッダーや空白行のスキップ判定
+                const keys = Object.keys(row);
+                if (keys.length === 0) return;
+                
+                // 行の最初の値を確認
+                const firstVal = String(row[keys[0]] || '').trim();
+                
+                // カテゴリの推定 (「＜日経225...＞」などの記述)
+                if (firstVal.includes('＜') && firstVal.includes('＞')) {
+                    currentCategory = firstVal.replace(/[＜＞]/g, '').trim();
+                    return;
+                }
+
+                // 汎用的なマッピング
+                let category = currentCategory;
+                let contractMonth = '';
+                let type = '不明'; // プット or コール or その他
+                
+                // データの抽出 (OR演算子で柔軟に対応)
+                const getVal = (possibleKeys) => {
+                    for(const k of possibleKeys) {
+                        const cleanK = k.trim();
+                        for (const rowKey of keys) {
+                            if (rowKey.replace(/\s+/g, '') === cleanK.replace(/\s+/g, '')) {
+                                return row[rowKey];
+                            }
+                        }
+                    }
+                    return null;
+                };
+
+                let rawContractMonth = getVal(['限月取引', '銘柄', '限月']) || firstVal;
+                if (!rawContractMonth || rawContractMonth.includes('限月取引') || rawContractMonth.includes('JPX')) return;
+                contractMonth = rawContractMonth.trim();
+
+                // 品目・プットコールの判定
+                if (contractMonth.match(/MINI/i) || category.match(/ミニ/)) {
+                    category = '日経225ミニオプション';
+                } else if (contractMonth.match(/NIKKEI 225/i) || category.match(/日経225/)) {
+                    category = '日経225オプション';
+                } else {
+                    category = '先物・その他';
+                }
+
+                if (contractMonth.match(/ P|プット/i) || category.match(/プット/)) {
+                    type = 'プット';
+                } else if (contractMonth.match(/ C|コール/i) || category.match(/コール/)) {
+                    type = 'コール';
+                } else {
+                    type = '先物';
+                }
+
+                // 数値データの抽出 (特殊文字を考慮)
+                const volumeStr = getVal(['取引高', '数量']);
+                const oiStr = getVal(['当日建玉残高', '建玉残高', '当日\n建玉残高', '当日\r\n建玉残高']);
+                const diffStr = getVal(['前日比', '増減']);
+                const prevOiStr = getVal(['前日建玉残高', '前日\n建玉残高', '前日\r\n建玉残高']);
+
+                const volume = cleanNum(volumeStr);
+                const openInterest = cleanNum(oiStr);
+                // 前日比はマイナスを許容する
+                const sDiff = String(diffStr).replace(/[^-0-9.]/g, '');
+                const diff = parseFloat(sDiff) || 0;
+                const prevOpenInterest = cleanNum(prevOiStr);
+
+                // 全て0のデータや無効な行はスキップ
+                if (volume === 0 && openInterest === 0 && diff === 0) return;
+
+                rawData.push({
+                    category,
+                    contractMonth,
+                    type,
+                    volume,
+                    openInterest,
+                    diff,
+                    prevOpenInterest
+                });
+            });
+
+            initFilters();
+            
+            document.getElementById('initialSplash').classList.add('hidden');
+            document.getElementById('appHeader').classList.remove('hidden');
+            document.getElementById('dashboardContent').classList.remove('hidden');
+            
+            document.getElementById('filterContainer1').classList.remove('opacity-50', 'pointer-events-none');
+            document.getElementById('btnExportPdf').classList.remove('hidden');
+            document.getElementById('btnExportJson').classList.remove('hidden');
+            
+            applyFilters();
+        }
+
+        function initFilters() {
+            const categories = [...new Set(rawData.map(d => d.category))].sort();
+            const sel = document.getElementById('filterCategory');
+            sel.innerHTML = '<option value="all">全商品・全区分</option>';
+            categories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                sel.appendChild(opt);
+            });
+        }
+
+        function applyFilters() {
+            const cat = document.getElementById('filterCategory').value;
+
+            filteredData = rawData.filter(d => {
+                if (cat !== 'all' && d.category !== cat) return false;
+                return true;
+            });
+
+            updateKPIs();
+            renderCharts();
+            generateAIInsight();
+        }
+
+        function updateKPIs() {
+            const totalOI = filteredData.reduce((a, b) => a + b.openInterest, 0);
+            const totalVol = filteredData.reduce((a, b) => a + b.volume, 0);
+            const totalDiff = filteredData.reduce((a, b) => a + b.diff, 0);
+            const count = filteredData.length;
+
+            document.getElementById('kpi-open-interest').textContent = formatShortNumber(totalOI);
+            document.getElementById('kpi-volume').textContent = formatShortNumber(totalVol);
+            
+            const diffEl = document.getElementById('kpi-diff');
+            diffEl.textContent = (totalDiff > 0 ? '+' : '') + formatShortNumber(totalDiff);
+            diffEl.className = `text-xl font-extrabold tracking-tight ${totalDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+            
+            document.getElementById('kpi-count').textContent = formatShortNumber(count);
+        }
+
+        function renderCharts() {
+            const container = document.getElementById('chartsGrid');
+            container.innerHTML = '';
+            charts = {};
+
+            Chart.defaults.scales.linear.ticks.callback = function(value) {
+                return formatShortNumber(value);
+            };
+
+            globalChartDefinitions = [
+                // 1. 商品別 当日建玉残高合計シェア
+                {
+                    id: 'c1', title: '商品別 当日建玉残高合計シェア', type: 'doughnut',
+                    getData: () => {
+                        const d = aggregateData(filteredData, 'category', 'openInterest', 'sum');
+                        return { labels: d.labels, datasets: [{ data: d.data, backgroundColor: COLORS }] };
+                    }
+                },
+                // 2. 商品別 取引高合計比較
+                {
+                    id: 'c2', title: '商品別 取引高合計比較', type: 'bar',
+                    getData: () => {
+                        const d = aggregateData(filteredData, 'category', 'volume', 'sum');
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[1] }] };
+                    }
+                },
+                // 3. 先物・その他 限月別建玉残高 (国債や金利含む)
+                {
+                    id: 'c3', title: '先物・その他 限月別建玉残高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '先物・その他');
+                        const d = aggregateData(data, 'contractMonth', 'openInterest', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '建玉残高', data: d.data, backgroundColor: COLORS[2] }] };
+                    }
+                },
+                // 4. 先物・その他 取引高ランキング
+                {
+                    id: 'c4', title: '先物・その他 取引高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '先物・その他');
+                        const d = aggregateData(data, 'contractMonth', 'volume', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[3] }] };
+                    }
+                },
+                // 5. 日経225オプション プット 建玉残高 TOP10
+                {
+                    id: 'c5', title: '日経225オプション プット 建玉残高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225オプション' && d.type === 'プット');
+                        const d = aggregateData(data, 'contractMonth', 'openInterest', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '建玉残高', data: d.data, backgroundColor: COLORS[4] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 6. 日経225オプション コール 建玉残高 TOP10
+                {
+                    id: 'c6', title: '日経225オプション コール 建玉残高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225オプション' && d.type === 'コール');
+                        const d = aggregateData(data, 'contractMonth', 'openInterest', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '建玉残高', data: d.data, backgroundColor: COLORS[5] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 7. 日経225ミニオプション プット 建玉残高 TOP10
+                {
+                    id: 'c7', title: '日経225ミニオプション プット 建玉残高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225ミニオプション' && d.type === 'プット');
+                        const d = aggregateData(data, 'contractMonth', 'openInterest', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '建玉残高', data: d.data, backgroundColor: COLORS[6] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 8. 日経225ミニオプション コール 建玉残高 TOP10
+                {
+                    id: 'c8', title: '日経225ミニオプション コール 建玉残高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225ミニオプション' && d.type === 'コール');
+                        const d = aggregateData(data, 'contractMonth', 'openInterest', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '建玉残高', data: d.data, backgroundColor: COLORS[7] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 9. 日経225オプション プット vs コール 建玉比率
+                {
+                    id: 'c9', title: '日経225オプション プット/コール 建玉比率', type: 'pie',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225オプション');
+                        const d = aggregateData(data, 'type', 'openInterest', 'sum');
+                        return { labels: d.labels, datasets: [{ data: d.data, backgroundColor: [COLORS[8], COLORS[9]] }] };
+                    }
+                },
+                // 10. 日経225ミニ プット vs コール 取引高比率
+                {
+                    id: 'c10', title: '日経225ミニ プット/コール 取引高比率', type: 'pie',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225ミニオプション');
+                        const d = aggregateData(data, 'type', 'volume', 'sum');
+                        return { labels: d.labels, datasets: [{ data: d.data, backgroundColor: [COLORS[10], COLORS[11]] }] };
+                    }
+                },
+                // 11. 区分別（プット/コール/先物） 前日比増減幅
+                {
+                    id: 'c11', title: '区分別（プット/コール等） 前日比合計', type: 'bar',
+                    getData: () => {
+                        const d = aggregateData(filteredData, 'type', 'diff', 'sum', 5, false);
+                        return { labels: d.labels, datasets: [{ label: '前日比増減', data: d.data, backgroundColor: COLORS[12] }] };
+                    }
+                },
+                // 12. 日経225オプション プット 取引高 TOP10
+                {
+                    id: 'c12', title: '日経225オプション プット 取引高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225オプション' && d.type === 'プット');
+                        const d = aggregateData(data, 'contractMonth', 'volume', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[13] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 13. 日経225オプション コール 取引高 TOP10
+                {
+                    id: 'c13', title: '日経225オプション コール 取引高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225オプション' && d.type === 'コール');
+                        const d = aggregateData(data, 'contractMonth', 'volume', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[14] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 14. 日経225ミニ プット 取引高 TOP10
+                {
+                    id: 'c14', title: '日経225ミニ プット 取引高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225ミニオプション' && d.type === 'プット');
+                        const d = aggregateData(data, 'contractMonth', 'volume', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[15] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 15. 日経225ミニ コール 取引高 TOP10
+                {
+                    id: 'c15', title: '日経225ミニ コール 取引高 TOP10', type: 'bar',
+                    getData: () => {
+                        const data = filteredData.filter(d => d.category === '日経225ミニオプション' && d.type === 'コール');
+                        const d = aggregateData(data, 'contractMonth', 'volume', 'sum', 10, false);
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[16] }] };
+                    },
+                    options: { indexAxis: 'y' }
+                },
+                // 16. 全市場 建玉増大 TOP10 (前日比プラス)
+                {
+                    id: 'c16', title: '建玉増大 銘柄 TOP10 (前日比プラス)', type: 'bar',
+                    getData: () => {
+                        const data = [...filteredData].sort((a, b) => b.diff - a.diff).slice(0, 10);
+                        return { labels: data.map(d => d.contractMonth), datasets: [{ label: '前日比増', data: data.map(d => d.diff), backgroundColor: '#10b981' }] };
+                    }
+                },
+                // 17. 全市場 建玉減少 BOTTOM10 (前日比マイナス)
+                {
+                    id: 'c17', title: '建玉減少 銘柄 BOTTOM10 (前日比マイナス)', type: 'bar',
+                    getData: () => {
+                        const data = [...filteredData].sort((a, b) => a.diff - b.diff).slice(0, 10);
+                        return { labels: data.map(d => d.contractMonth), datasets: [{ label: '前日比減', data: data.map(d => d.diff), backgroundColor: '#ef4444' }] };
+                    }
+                },
+                // 18. 建玉残高 vs 取引高 相関分析
+                {
+                    id: 'c18', title: '建玉残高 vs 取引高 相関分析', type: 'scatter',
+                    getData: () => {
+                        return {
+                            datasets: [{
+                                label: '銘柄',
+                                data: filteredData.filter(d => d.openInterest > 0 || d.volume > 0).map(d => ({ x: d.openInterest, y: d.volume })),
+                                backgroundColor: COLORS[17]
+                            }]
+                        };
+                    },
+                    options: { scales: { x: { title: { display: true, text: '建玉残高' } }, y: { title: { display: true, text: '取引高' } } } }
+                },
+                // 19. カテゴリ別 取引高比較
+                {
+                    id: 'c19', title: 'カテゴリ別 取引高比較', type: 'bar',
+                    getData: () => {
+                        const d = aggregateData(filteredData, 'category', 'volume', 'sum');
+                        return { labels: d.labels, datasets: [{ label: '取引高', data: d.data, backgroundColor: COLORS[18] }] };
+                    }
+                },
+                // 20. 取引高 TOP10銘柄 前日建玉残高と当日取引高の複合分析
+                {
+                    id: 'c20', title: '取引活況銘柄: 前日建玉と当日取引高', type: 'bar',
+                    getData: () => {
+                        const topVol = [...filteredData].sort((a, b) => b.volume - a.volume).slice(0, 10);
+                        return {
+                            labels: topVol.map(d => d.contractMonth),
+                            datasets: [
+                                { type: 'line', label: '前日建玉残高', data: topVol.map(d => d.prevOpenInterest), borderColor: COLORS[7], yAxisID: 'y1' },
+                                { type: 'bar', label: '当日取引高', data: topVol.map(d => d.volume), backgroundColor: COLORS[0], yAxisID: 'y' }
+                            ]
+                        };
+                    },
+                    options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }
+                }
+            ];
+
+            globalChartDefinitions.forEach(def => {
+                try {
+                    const div = document.createElement('div');
+                    div.className = 'chart-card';
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <span class="w-1 h-4 bg-blue-500 rounded-full"></span>
+                                ${def.title}
+                            </h4>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="${def.id}"></canvas>
+                        </div>
+                    `;
+                    container.appendChild(div);
+
+                    const ctx = document.getElementById(def.id).getContext('2d');
+                    const data = def.getData();
+                    
+                    charts[def.id] = new Chart(ctx, {
+                        type: def.type,
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { 
+                                    display: def.type === 'pie' || def.type === 'doughnut' || def.title.includes('推移') || def.title.includes('複合分析') || def.title.includes('分布'),
+                                    position: (def.type === 'pie' || def.type === 'doughnut') ? 'right' : 'bottom',
+                                    labels: { boxWidth: 10, font: { size: 10 } }
+                                },
+                                datalabels: {
+                                    display: (ctx) => {
+                                        return ctx.dataset.data.length < 20 && ctx.chart.width > 200 && def.type !== 'scatter'; 
+                                    },
+                                    color: '#fff',
+                                    font: { weight: 'bold', size: 9 },
+                                    formatter: (value) => {
+                                        if (value === null || value === undefined) return '';
+                                        if (def.type === 'scatter') return '';
+                                        return formatShortNumber(value);
+                                    },
+                                    textShadowColor: 'rgba(0,0,0,0.5)',
+                                    textShadowBlur: 2
+                                }
+                            },
+                            scales: (def.type === 'pie' || def.type === 'doughnut' || def.type === 'radar') ? {} : (def.options?.scales || {}),
+                            ...def.options
+                        }
+                    });
+                } catch (e) {
+                    console.error(`Error rendering chart ${def.title}:`, e);
+                }
+            });
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        async function generateAIInsight() {
+            const contentDiv = document.getElementById('aiContent');
+            const statusBadge = document.getElementById('aiStatusBadge');
+
+            if (filteredData.length === 0) return;
+            
+            statusBadge.classList.remove('hidden');
+            statusBadge.innerHTML = '<span class="animate-ping inline-flex h-2 w-2 rounded-full bg-blue-400 opacity-75 mr-2"></span>Thinking...';
+            contentDiv.innerHTML = '<div class="space-y-3 animate-pulse"><div class="h-4 bg-slate-100 rounded w-3/4"></div><div class="h-4 bg-slate-100 rounded w-full"></div><div class="h-4 bg-slate-100 rounded w-5/6"></div></div>';
+
+            const kpi = {
+                oi: document.getElementById('kpi-open-interest').textContent,
+                vol: document.getElementById('kpi-volume').textContent,
+                diff: document.getElementById('kpi-diff').textContent,
+                category: document.getElementById('filterCategory').value
+            };
+
+            const getTop3 = (key, measure) => aggregateData(filteredData, key, measure, 'sum', 3).labels.join(', ');
+            const topOIMonths = getTop3('contractMonth', 'openInterest');
+            const topVolMonths = getTop3('contractMonth', 'volume');
+
+            const prompt = `
+            あなたは金融デリバティブ市場のプロフェッショナルなマーケットアナリストです。
+            以下の集計データ（建玉残高・取引高）を深く分析し、機関投資家・トレーダー向けの「戦略インサイトレポート」を作成してください。
+
+            ## 分析対象データ要約
+            - フィルタ対象: ${kpi.category}
+            - 総建玉残高: ${kpi.oi}
+            - 総取引高: ${kpi.vol}
+            - 建玉 前日比合計: ${kpi.diff}
+            - 建玉残高が大きい主要銘柄/限月: ${topOIMonths}
+            - 取引が活発な主要銘柄/限月: ${topVolMonths}
+
+            ## レポート要件 (Markdown形式)
+            1. **データの傾向分析** (全体の約7割)
+               - 建玉残高の分布、前日比の増減から読み取れる市場のセンチメント（強気/弱気、ヘッジ需要など）
+               - 取引高と建玉残高の乖離や特徴的な動き
+               - プット/コールのバランスや主要な権利行使価格帯（ストライク）の分析
+
+            2. **戦略インサイト・提言** (全体の約3割)
+               - 上記分析に基づき、明日の市場に向けた具体的な注目ポイント・リスクシナリオを3点
+               - トレーディングデスクが即座に確認すべきアクションプラン
+
+            **重要: セクションの見出しには、「70%」や「30%」といった割合の数値を絶対に含めないでください。**
+            **重要: 太字にする際は、Markdownの ** (アスタリスク2つ) を使用し、HTMLタグやエスケープ文字は使用しないでください。強調したい言葉の前後には必ず半角スペースを入れてください（例: 「 **強調** 」）。**
+            ※文体は「です・ます」調で、プロフェッショナルかつ客観的なトーンで書いてください。
+            `;
+
+            try {
+                const fetchAndValidate = async (url, options, retries = 3) => {
+                    for (let i = 0; i < retries; i++) {
+                        try {
+                            const res = await fetch(url, options);
+                            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                            
+                            const data = await res.json();
+                            if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+                                throw new Error("Invalid API Response: No text content found");
+                            }
+                            return data; 
+                        } catch (err) {
+                            console.warn(`Attempt ${i + 1} failed: ${err.message}`);
+                            if (i === retries - 1) throw err;
+                            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i))); 
+                        }
+                    }
+                };
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                const data = await fetchAndValidate(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                const mdText = data.candidates?.[0]?.content?.parts?.[0]?.text || "分析結果を取得できませんでした。";
+                
+                let htmlContent = marked.parse(mdText);
+                htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                
+                contentDiv.innerHTML = htmlContent;
+                
+                statusBadge.innerHTML = '<i data-lucide="check" class="w-3 h-3 mr-1"></i>Completed';
+                statusBadge.classList.remove('text-blue-600', 'bg-white');
+                statusBadge.classList.add('text-green-600', 'bg-green-50');
+                lucide.createIcons();
+
+            } catch (error) {
+                console.error("AI Error:", error);
+                contentDiv.innerHTML = `
+                    <div class="text-center py-8 text-red-500 bg-red-50 rounded-lg">
+                        <p class="font-bold">AI分析エラー</p>
+                        <p class="text-xs mt-1">ネットワーク接続を確認するか、しばらく待ってから再試行してください。</p>
+                        <p class="text-xs text-slate-400 mt-2">${error.message}</p>
+                    </div>
+                `;
+                statusBadge.classList.add('hidden');
+            }
+        }
+
+        async function exportPDF() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingText').textContent = 'PDFレポート作成中...';
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = 210;
+            const pageHeight = 297;
+            const margin = 10;
+            let currentY = margin;
+
+            const imgFormat = 'JPEG';
+            const quality = 0.75;
+
+            const aiBadge = document.getElementById('aiStatusBadge');
+            if (aiBadge) aiBadge.classList.add('hidden');
+
+            const styleTag = document.createElement('style');
+            styleTag.innerHTML = `.prose-ai strong, .prose-ai b { background: none !important; }`;
+            document.head.appendChild(styleTag);
+
+            try {
+                pdf.setFontSize(16);
+                pdf.text(`Majin Analytics Report - ${new Date().toLocaleDateString()}`, margin, currentY + 5);
+                currentY += 18;
+
+                const kpiSection = document.getElementById('kpiSection');
+                if (kpiSection) {
+                    const canvas = await html2canvas(kpiSection, { scale: 2, useCORS: true });
+                    const imgWidth = pageWidth - (margin * 2);
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    pdf.addImage(canvas.toDataURL('image/jpeg', quality), imgFormat, margin, currentY, imgWidth, imgHeight);
+                    currentY += imgHeight + 10;
+                }
+
+                const chartCards = document.querySelectorAll('.chart-card');
+                const chartsArray = Array.from(chartCards);
+                
+                const page1ChartLimit = 2;
+                const pageNextChartLimit = 3;
+
+                const availableH_p1 = pageHeight - currentY - margin;
+                const heightPerChart_p1 = (availableH_p1 - 10) / 2;
+                const chartH_p1 = Math.min(heightPerChart_p1, 90);
+
+                let chartIndex = 0;
+
+                for (let i = 0; i < page1ChartLimit && chartIndex < chartsArray.length; i++) {
+                    const card = chartsArray[chartIndex];
+                    const canvas = await html2canvas(card, { scale: 2, useCORS: true });
+                    const imgWidth = pageWidth - (margin * 2);
+                    let imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    
+                    if (imgHeight > chartH_p1) imgHeight = chartH_p1;
+
+                    pdf.addImage(canvas.toDataURL('image/jpeg', quality), imgFormat, margin, currentY, imgWidth, imgHeight);
+                    currentY += imgHeight + 5;
+                    chartIndex++;
+                }
+
+                while (chartIndex < chartsArray.length) {
+                    pdf.addPage();
+                    currentY = margin;
+                    
+                    const bottomBuffer = 10;
+                    const availableH_p2 = pageHeight - (margin * 2) - bottomBuffer;
+                    const maxChartH_p2 = availableH_p2 / pageNextChartLimit; 
+                    
+                    const chartsOnThisPage = Math.min(pageNextChartLimit, chartsArray.length - chartIndex);
+                    
+                    for (let i = 0; i < chartsOnThisPage; i++) {
+                        const card = chartsArray[chartIndex];
+                        const canvas = await html2canvas(card, { scale: 2, useCORS: true });
+                        const imgWidth = pageWidth - (margin * 2);
+                        let imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        
+                        if (imgHeight > maxChartH_p2) imgHeight = maxChartH_p2; 
+
+                        pdf.addImage(canvas.toDataURL('image/jpeg', quality), imgFormat, margin, currentY, imgWidth, imgHeight);
+                        currentY += imgHeight + 5;
+                        chartIndex++;
+                    }
+                }
+
+                const aiSection = document.getElementById('aiSection');
+                if (aiSection) {
+                    pdf.addPage(); 
+                    currentY = margin;
+
+                    const canvas = await html2canvas(aiSection, { 
+                        scale: 2, 
+                        useCORS: true,
+                        backgroundColor: '#ffffff' 
+                    });
+                    
+                    const imgWidth = pageWidth - (margin * 2);
+                    const ctx = canvas.getContext('2d');
+                    
+                    let srcY_px = 0; 
+                    let remainingH_px = canvas.height;
+
+                    const findSafeSplitY = (ctx, width, startY, searchRange = 80) => {
+                        const imgData = ctx.getImageData(0, startY - searchRange, width, searchRange);
+                        const data = imgData.data;
+                        for (let row = searchRange - 1; row >= 0; row--) {
+                            let hasText = false;
+                            for (let col = 0; col < width; col+=5) { 
+                                const idx = (row * width + col) * 4;
+                                const r = data[idx], g = data[idx+1], b = data[idx+2];
+                                if (r < 230 && g < 230 && b < 230) {
+                                    hasText = true;
+                                    break;
+                                }
+                            }
+                            if (!hasText) return startY - (searchRange - row);
+                        }
+                        return startY; 
+                    };
+
+                    while (remainingH_px > 0) {
+                         const pdfAvailableH_mm = (srcY_px === 0) ? (pageHeight - margin * 2) : (pageHeight - margin * 2);
+                         const maxPageH_px = (pdfAvailableH_mm / imgWidth) * canvas.width;
+                         let splitH_px = Math.min(remainingH_px, maxPageH_px);
+
+                         if (splitH_px < remainingH_px) {
+                             const safeSplitY = findSafeSplitY(ctx, canvas.width, srcY_px + splitH_px, 100); 
+                             splitH_px = safeSplitY - srcY_px;
+                         }
+
+                         const sliceCanvas = document.createElement('canvas');
+                         sliceCanvas.width = canvas.width;
+                         sliceCanvas.height = splitH_px;
+                         const sCtx = sliceCanvas.getContext('2d');
+                         
+                         sCtx.drawImage(canvas, 0, srcY_px, canvas.width, splitH_px, 0, 0, sliceCanvas.width, splitH_px);
+                         const sliceH_mm = (splitH_px / canvas.width) * imgWidth;
+
+                         pdf.addImage(sliceCanvas.toDataURL('image/jpeg', quality), imgFormat, margin, currentY, imgWidth, sliceH_mm);
+                         
+                         srcY_px += splitH_px;
+                         remainingH_px -= splitH_px;
+                         
+                         if (remainingH_px > 0) {
+                             pdf.addPage();
+                             currentY = margin;
+                         }
+                    }
+                }
+
+                pdf.save(`Majin_Analytics_Report_${Date.now()}.pdf`);
+
+            } catch (e) {
+                console.error(e);
+                alert('PDF生成に失敗しました: ' + e.message);
+            } finally {
+                if (aiBadge) aiBadge.classList.remove('hidden');
+                if (styleTag.parentNode) styleTag.parentNode.removeChild(styleTag);
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        function exportJSON() {
+            try {
+                const exportData = {
+                    metadata: {
+                        exportedAt: new Date().toISOString(),
+                        filterCondition: {
+                            category: document.getElementById('filterCategory').value
+                        }
+                    },
+                    kpi: {
+                        openInterest: document.getElementById('kpi-open-interest').textContent,
+                        volume: document.getElementById('kpi-volume').textContent,
+                        diff: document.getElementById('kpi-diff').textContent,
+                        count: document.getElementById('kpi-count').textContent
+                    },
+                    charts: []
+                };
+
+                globalChartDefinitions.forEach(def => {
+                    exportData.charts.push({
+                        id: def.id,
+                        title: def.title,
+                        type: def.type,
+                        data: def.getData() 
+                    });
+                });
+
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Majin_Analytics_Data_${Date.now()}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+            } catch (e) {
+                console.error(e);
+                alert('JSON出力に失敗しました: ' + e.message);
+            }
+        }
+    </script>
 </body>
 </html>
